@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Prerequisites:
 #   1. docker network create bot-proxy-net
-#   2. DNS: *.dashboard.example.com → VPS IP
+#   2. DNS: *.DOMAIN → VPS IP (DOMAIN is set in nginx/.env)
 #   3. nginx/ssl/cloudflare.ini with Cloudflare API token
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,8 +18,18 @@ if [ -f "$NGINX_ENV" ]; then
     DOMAIN=$(grep '^DOMAIN=' "$NGINX_ENV" | cut -d'=' -f2-)
     CERTBOT_EMAIL=$(grep '^CERTBOT_EMAIL=' "$NGINX_ENV" | cut -d'=' -f2-)
 fi
-DOMAIN="${DOMAIN:-dashboard.example.com}"
-CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@${DOMAIN}}"
+
+if [ -z "${DOMAIN:-}" ]; then
+    echo "❌ DOMAIN not set. Configure it in nginx/.env"
+    echo "   DOMAIN=yourdomain.com"
+    exit 1
+fi
+
+if [ -z "${CERTBOT_EMAIL:-}" ]; then
+    echo "❌ CERTBOT_EMAIL not set. Configure it in nginx/.env"
+    echo "   CERTBOT_EMAIL=you@yourdomain.com"
+    exit 1
+fi
 
 echo "🔐 Bootstrapping SSL certificates for *.${DOMAIN}..."
 echo ""
@@ -45,6 +55,20 @@ fi
 mkdir -p "$NGINX_DIR/ssl/certbot/conf"
 mkdir -p "$NGINX_DIR/ssl/certbot/www"
 mkdir -p "$NGINX_DIR/conf.d"
+
+# --- Generate nginx.conf + per-bot configs ---
+GENERATE_SCRIPT="$NGINX_DIR/../openclaw_docker/generate-compose.sh"
+if [ -f "$GENERATE_SCRIPT" ]; then
+    echo "📝 Generating nginx.conf and bot configs..."
+    bash "$GENERATE_SCRIPT"
+fi
+
+# Verify nginx.conf exists (generate-compose.sh creates it)
+if [ ! -f "$NGINX_DIR/nginx.conf" ]; then
+    echo "❌ nginx.conf not found. Run generate-compose.sh first:"
+    echo "   cd ../openclaw_docker && ./generate-compose.sh"
+    exit 1
+fi
 
 # --- Create temporary self-signed cert so nginx can start ---
 CERT_DIR="$NGINX_DIR/ssl/certbot/conf/live/${DOMAIN}"

@@ -1,5 +1,5 @@
 # Nginx reverse proxy for OpenClaw bot dashboards
-# Each bot gets: botname.dashboard.example.com
+# Each bot gets: botname.DOMAIN (configured in nginx/.env)
 # Wildcard SSL via Let's Encrypt + Cloudflare DNS-01
 
 services:
