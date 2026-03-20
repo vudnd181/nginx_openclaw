@@ -8,3 +8,5 @@ nginx.conf
 
 # macOS
 .DS_Store
+
+.env
