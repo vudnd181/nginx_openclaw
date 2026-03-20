@@ -1,0 +1,43 @@
+# Nginx reverse proxy for OpenClaw bot dashboards
+# Each bot gets: botname.dashboard.example.com
+# Wildcard SSL via Let's Encrypt + Cloudflare DNS-01
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bot-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./conf.d:/etc/nginx/conf.d:ro
+      - ./ssl/certbot/conf:/etc/letsencrypt:ro
+      - ./ssl/certbot/www:/var/www/certbot:ro
+    networks:
+      - bot-proxy-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Reload every 6h to pick up renewed certs
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/dns-cloudflare:latest
+    container_name: bot-certbot
+    volumes:
+      - ./ssl/certbot/conf:/etc/letsencrypt
+      - ./ssl/certbot/www:/var/www/certbot
+      - ./ssl/cloudflare.ini:/etc/cloudflare/cloudflare.ini:ro
+    # Check renewal every 12h (certbot skips if not due)
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done'"
+    networks:
+      - bot-proxy-net
+    restart: unless-stopped
+
+networks:
+  bot-proxy-net:
+    external: true
