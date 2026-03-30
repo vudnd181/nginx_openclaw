@@ -107,12 +107,13 @@ echo ""
 docker compose -f "$NGINX_DIR/docker-compose.yml" run --rm certbot certonly \
     --dns-cloudflare \
     --dns-cloudflare-credentials /etc/cloudflare/cloudflare.ini \
-    --dns-cloudflare-propagation-seconds 30 \
+    --dns-cloudflare-propagation-seconds 60 \
     -d "${DOMAIN}" \
     -d "*.${DOMAIN}" \
     --email "${CERTBOT_EMAIL}" \
     --agree-tos \
-    --no-eff-email
+    --no-eff-email \
+    --expand
 
 # --- Reload nginx with real cert ---
 echo ""
